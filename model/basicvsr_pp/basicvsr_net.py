@@ -200,6 +200,11 @@ class ResidualBlocksWithInputConv(nn.Module):
         out_channels (int): Number of channels of the residual blocks.
             Default: 64.
         num_blocks (int): Number of residual blocks. Default: 30.
+    
+    It has a style of:
+    ::
+
+    --Conv-LeakyReLU -- ResNetBlock -- ResNetBlock --... --
     """
 
     def __init__(self, in_channels, out_channels=64, num_blocks=30):

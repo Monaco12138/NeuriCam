@@ -70,6 +70,7 @@ def load_video(video_path, frame_fmt='frame%d.png', start_num=0,
         else:
             frame = cv2.imread(frame_pth, cv2.IMREAD_COLOR)
         frame = frame.astype('float32') / 255. # Norm. to [0, 1]
+        # change BGR to RGB
         frame = frame[:, :, ::-1] # [h, w, rgb]
         frame = frame.transpose(2, 0, 1).copy() # [rgb, h, w]
         frame = torch.from_numpy(frame)
@@ -124,7 +125,7 @@ class KeyVSRCDataset(data.Dataset):
         else:
             self.grayscale = False
 
-
+    # 直接索引到某个视频类别下面的所有文件，index即位视频类别的索引
     def __getitem__(self, index):
         video = self.videos[index]
 
@@ -144,7 +145,7 @@ class KeyVSRCDataset(data.Dataset):
             start_num = self.start_num
         end_num = start_num + num_frames
 
-        # Load videos
+        # Load videos [t, c, h, w], t即位时间序列，加载一个视频类别的所有frame
         if self.target_dir:
             target = load_video(os.path.join(self.target_dir, video),
                                 self.frame_fmt, start_num, end_num, grayscale=self.grayscale)
@@ -166,7 +167,7 @@ class KeyVSRCDataset(data.Dataset):
         else:
             key = None
 
-        # Transforms
+        # Transforms 对视频做操作
         transform_params = generate_transform_params(
             lr_h, lr_w, self.reflect_padding, self.patch_size,
             self.patch_size, self.scale)

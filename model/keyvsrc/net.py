@@ -13,7 +13,7 @@ import utils
 from basicvsr_pp.basicvsr_pp import BasicVSRPlusPlus
 from basicvsr_pp.basicvsr_net import ResidualBlocksWithInputConv
 
-class Net(nn.Module):
+class Net(nn.Module): 
     def __init__(self, upscale_factor, mid_channels, upsampler='default'):
         super(Net, self).__init__()
         self.upscale_factor = upscale_factor
@@ -26,6 +26,7 @@ class Net(nn.Module):
             nn.Conv2d(mid_channels, mid_channels, 3, 2, 1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
             ResidualBlocksWithInputConv(mid_channels, mid_channels, 5))
+        
         self.basicvsr_pp = BasicVSRPlusPlus(
             mid_channels=mid_channels,
             num_blocks=7,
