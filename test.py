@@ -4,6 +4,8 @@ import os
 import utils
 import numpy as np
 import torch
+import cv2
+import torch.nn.functional as F
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_target_dir', default=None,
@@ -46,8 +48,40 @@ params.eval_batch_size = args.eval_batch_size
 
 #params.save('./test.json')
 
-x = np.arange(8*3*2160*3840).reshape(8, 3, 2160, 3840).astype(np.float32)
-print(x.shape)
 
-y = x / 255.
-print(y.shape)
+# source_path = '/home/ubuntu/data/Dataset/Vid4/GT'
+
+# video_name = 'foliage'
+
+# file_list =  sorted( os.listdir( os.path.join(source_path, video_name) ) )
+
+
+# target_path = '/home/ubuntu/data/home/main/NeuriCam/data/key-set'
+# if not os.path.exists( os.path.join( target_path, video_name) ):
+#     os.makedirs( os.path.join( target_path, video_name) )
+
+# for i in range( len(file_list) ):
+#     if i % 15 == 0:
+#         source_file = os.path.join(source_path, video_name, file_list[i])
+#         target_file = os.path.join(target_path, video_name, 'frame{}.png'.format(i) )
+#         os.system('cp {} {}'.format(source_file, target_file) )\
+
+h, w = 3, 4
+y, x = torch.meshgrid(torch.arange(0,h), torch.arange(0,w))
+
+grid = torch.stack((x,y), 2)
+#print(grid)
+
+gridx = 2.0 * grid[:,:,0] / max(w, 1) - 1.0
+gridy = 2.0 * grid[:,:,1] / max(h, 1) - 1.0
+
+gridf = torch.stack( (gridx, gridy), dim=-1)
+print(gridf)
+print(gridf.shape)
+gridf = gridf[None,...]
+
+x = torch.arange(h*w).reshape(1, 1, h, w).type(torch.float)
+print(x)
+
+output = F.grid_sample(x, gridf, mode='bilinear',padding_mode='zeros')
+print(output)

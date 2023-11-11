@@ -149,6 +149,9 @@ class KeyVSRCDataset(data.Dataset):
         if self.target_dir:
             target = load_video(os.path.join(self.target_dir, video),
                                 self.frame_fmt, start_num, end_num, grayscale=self.grayscale)
+            # print("---############---")
+            # print( target.shape )
+            # print('---############---')
             lr_h, lr_w = target.shape[2]//self.scale, target.shape[3]//self.scale
         else:
             target = None
@@ -200,7 +203,10 @@ def get_dataloader(target_dir, lr_dir, key_dir, params,
     batch_size = int(params.batch_size) if train else int(params.eval_batch_size)
     dataset = KeyVSRCDataset(target_dir, lr_dir, key_dir, params,
                              frame_fmt, train=train)
+
     dl = DataLoader(dataset=dataset, num_workers=params.num_workers,
                     batch_size=batch_size, shuffle=train, pin_memory=True)
     return dl
+
+
 

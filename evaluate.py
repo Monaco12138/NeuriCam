@@ -18,30 +18,30 @@ import model.net as net
 import model.dataset as dataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--target_dir', default=None,
+parser.add_argument('--target_dir', default='/home/ubuntu/data/home/main/NeuriCam/data/hr-set',
                     help="Directory containing the val target set")
-parser.add_argument('--lr_dir', default=None,
+parser.add_argument('--lr_dir', default='/home/ubuntu/data/home/main/NeuriCam/data/lr-set',
                     help="Directory containing the val lr set")
-parser.add_argument('--key_dir', default=None,
+parser.add_argument('--key_dir', default='/home/ubuntu/data/home/main/NeuriCam/data/key-set',
                     help="Directory containing the val key set")
 parser.add_argument('--file_fmt', default='frame%d.png',
                     help="Dataset file fmt")
-parser.add_argument('--model_dir', default='experiments/keyvsrc_attn',
+parser.add_argument('--model_dir', default='/home/ubuntu/data/home/main/NeuriCam/experiments/bix4_keyvsrc_attn',
                     help="Directory containing params.json")
 parser.add_argument('--num_steps', default=None, type=int,
                     help="Number of batches to evaluate on. Full dataset when set to None.")
 parser.add_argument('--eval_batch_size', default=1,
                     help="Batch size for evaluation.")
-parser.add_argument('--restore_file', default=None,
+parser.add_argument('--restore_file', default='pretrained',
                     help="Optional, name of the file in --model_dir containing weights to reload before \
                     training")  # 'best' or 'train'
-parser.add_argument('--output_dir', default=None,
+parser.add_argument('--output_dir', default='/home/ubuntu/data/home/main/NeuriCam/result',
                     help="Directory containing the val lr set")
 parser.add_argument('--profile', default=0, type=int,
                     help="Log profiling information.")
 parser.add_argument('--use_cpu', default=0, type=int,
                     help="Use CPU even when GPUs are available.")
-parser.add_argument('--gpu', default=0, type=int,
+parser.add_argument('--gpu', default=1, type=int,
                     help="Use CPU even when GPUs are available.")
 parser.add_argument('--data_parallel', default=0, type=int,
                     help="Use data parallel for multi-gpu inference")
@@ -65,20 +65,36 @@ def evaluate(model, loss_fn, dataloader, params, metrics, num_steps=None, output
 
     # summary for current eval loop
     summ = {k: [] for k in metrics.metrics + ['loss', 'runtime_per_batch', 'sample_ids']}
+    print(summ)
+    #{'PSNR_Y': [], 'PSNR_RGB': [], 'SSIM_Y': [], 'SSIM_RGB': [], 'loss': [], 'runtime_per_batch': [], 'sample_ids': []}
 
     with torch.no_grad():
         # compute metrics over the dataset
         for i, (train_batch, target, sample_ids) in enumerate(tqdm(dataloader)):
             if (num_steps is not None) and (i == num_steps):
                 break
+            print("######")
+            print( train_batch['LR'].shape, train_batch['key'].shape, train_batch['key_frame_int'].shape )
+            print( target['HR_lab'].shape, target['HR'].shape, target['key_frame_int'].shape )
+            print( sample_ids )
+            print("#####")
+            '''
+            [1, 49, 1, 124, 184], [1, 4, 3, 496, 736], [1]
+            [1, 49, 3, 496, 736], [1, 49, 3, 496, 736], [1]
+            ['foliage']
+            '''
 
             train_batch = net.batch_to_device(train_batch, params.device)
             target = net.batch_to_device(target, params.device)
- 
+
+            
+
             # compute model output and runtime
             with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
                 with record_function("model_inference"):
                     output_batch = model(train_batch)
+
+            
             if profiling:
                 logging.info(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
             summ['runtime_per_batch'].append(prof.profiler.self_cpu_time_total/1000)
@@ -86,6 +102,11 @@ def evaluate(model, loss_fn, dataloader, params, metrics, num_steps=None, output
             # Compute loss
             loss = loss_fn(output_batch, target)
             
+            print("@@@")
+            print(output_batch['HR_lab'].shape)
+            print("@@@")
+            # [1, 49, 3, 496, 736]
+
             train_batch = {k: train_batch[k].data.cpu() for k in train_batch}
             output_batch = {k: output_batch[k].data.cpu() for k in output_batch}
             target = {k: target[k].data.cpu() for k in target}
@@ -96,6 +117,7 @@ def evaluate(model, loss_fn, dataloader, params, metrics, num_steps=None, output
                 summ[metric] += metrics_batch[metric]
             summ['loss'].append(loss.item())
             summ['sample_ids'] += sample_ids
+
 
             if output_dir:
                 net.write_outputs(train_batch, output_batch, target, sample_ids,
@@ -130,6 +152,7 @@ if __name__ == '__main__':
     assert os.path.isfile(
         json_path), "No json configuration file found at {}".format(json_path)
     params = utils.Params(json_path)
+    #params.save('./eva.json')
 
     # use GPU if available
     params.device = torch.device(
@@ -173,6 +196,7 @@ if __name__ == '__main__':
     logging.info("Starting evaluation")
 
     # Reload weights from the saved file
+    print(os.path.join(args.model_dir, args.restore_file + '.pth.tar'))
     if args.restore_file:
         utils.load_checkpoint(os.path.join(
             args.model_dir, args.restore_file + '.pth.tar'), model, data_parallel=params.data_parallel)

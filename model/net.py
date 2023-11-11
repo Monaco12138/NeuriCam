@@ -166,6 +166,7 @@ def write_outputs(batch, output, target, sample_ids, output_dir, params, file_fm
     if key_frames:
         key = batch['key']
         key_frame_int = batch['key_frame_int'][0]
+
     target = target['HR']
     if params.net == "keyvsrc":
         key = utils.tensor_lab2rgb(key)
@@ -184,6 +185,7 @@ def write_outputs(batch, output, target, sample_ids, output_dir, params, file_fm
             key = key[:, :, :, hr_pad:-hr_pad, hr_pad:-hr_pad]
 
     utils.mkdir_if_not_exists(output_dir)
+    
     for i, vid in enumerate(sample_ids):
         out_dirs = ['lr', 'output', 'target']
         if key_frames:

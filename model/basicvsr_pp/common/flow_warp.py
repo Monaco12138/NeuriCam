@@ -9,7 +9,7 @@ def flow_warp(x,
               padding_mode='zeros',
               align_corners=True):
     """Warp an image or a feature map with optical flow.
-
+    光流就是一些坐标的变换量，根据这些变化量在ref参考图中选取坐标对应的像素点组合成图片
     Args:
         x (Tensor): Tensor with size (n, c, h, w).
         flow (Tensor): Tensor with size (n, h, w, 2). The last dimension is

@@ -1,5 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-
+# Clone from BasicVSR_PlusPlus/mmedit/models/models/backbones/sr_backbones/basicvsr_net.py
 # Edit:
 import os, sys
 
@@ -85,7 +85,8 @@ class BasicVSRNet(nn.Module):
 
     def compute_flow(self, lrs):
         """Compute optical flow using SPyNet for feature warping.
-
+        光流网络输入x, ref,得到的光流图表示怎么从ref提取像素点到x，可以认为存储的即一系列像素点坐标变化量
+    
         Note that if the input is an mirror-extended sequence, 'flows_forward'
         is not needed, since it is equal to 'flows_backward.flip(1)'.
 
@@ -352,17 +353,11 @@ class SPyNet(nn.Module):
         ref = F.interpolate(
             input=ref, size=(h_up, w_up), mode='bilinear', align_corners=False)
         supp = F.interpolate(
-            input=supp,
-            size=(h_up, w_up),
-            mode='bilinear',
-            align_corners=False)
+            input=supp, size=(h_up, w_up), mode='bilinear', align_corners=False)
 
         # compute flow, and resize back to the original resolution
         flow = F.interpolate(
-            input=self.compute_flow(ref, supp),
-            size=(h, w),
-            mode='bilinear',
-            align_corners=False)
+            input=self.compute_flow(ref, supp), size=(h, w), mode='bilinear', align_corners=False)
 
         # adjust the flow values
         flow[:, 0, :, :] *= float(w) / float(w_up)

@@ -15,3 +15,4 @@ experiments/*/metrics_*.json
 experiments/temp/
 benchmarks/*/
 data/*/
+result/*
