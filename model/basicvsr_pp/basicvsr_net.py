@@ -133,6 +133,8 @@ class BasicVSRNet(nn.Module):
 
         # compute optical flow
         flows_forward, flows_backward = self.compute_flow(lrs)
+        #-- save flows map --#
+        flowsf = flows_forward[0]
 
         # backward-time propgation
         outputs = []
@@ -187,7 +189,7 @@ class BasicVSRNet(nn.Module):
         if isinstance(pretrained, str):
             # Edit:
             # logger = get_root_logger()
-            load_checkpoint(self, pretrained, strict=strict, logger=logger)
+            load_checkpoint(self, pretrained, strict=strict)
         elif pretrained is not None:
             raise TypeError(f'"pretrained" must be a str or None. '
                             f'But received {type(pretrained)}.')
@@ -429,3 +431,60 @@ class SPyNetBasicModule(nn.Module):
             Tensor: Refined flow with shape (b, 2, h, w)
         """
         return self.basic_module(tensor_input)
+
+
+if __name__ == '__main__':
+    import glob
+    import cv2
+    from torchvision import transforms
+    #-- load model parameters --#
+    spynet_pth = '/home/ubuntu/data/home/main/NeuriCam/model/keyvsrc/spynet_20210409-c6c1bd09.pth'
+    basicvsr_pth = '/home/ubuntu/data/home/main/NeuriCam/model/basicvsr_pp/checkpoint/basicvsr_reds4_20120409-0e599677.pth'
+    vsrmodel = BasicVSRNet(spynet_pretrained=spynet_pth)
+    #vsrmodel.init_weights(pretrained=basicvsr_pth)
+
+    savedict = torch.load( basicvsr_pth )['state_dict']
+    modeldict = {}
+    for k, v in savedict.items():
+        k = k[10:]
+        modeldict[k] = v
+    
+    vsrmodel.load_state_dict( modeldict )
+    
+    #-- data loader --#
+    data_pth = '/home/ubuntu/data/Dataset/Vid4/BIx4/foliage'
+
+    filelist = sorted(glob.glob(os.path.join(data_pth, '*.png') ))
+    #print(filelist)
+    #t = len(filelist)
+    video = []
+    for file_pth in filelist:
+        frame = cv2.imread(file_pth, cv2.IMREAD_COLOR)
+        frame_tensor = transforms.ToTensor()( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
+        video.append( frame_tensor)
+    video = torch.stack(video, dim=0)
+    
+    # [49, 3, 120, 180]
+    t, c, lr_h, lr_w = video.shape
+    
+    #-- infer --#
+    device = torch.device('cuda:1')
+
+    video = video.to(device)
+    vsrmodel = vsrmodel.to(device)
+
+    with torch.no_grad():
+        output = vsrmodel( video[None,...] )[0]
+    output = output.cpu()
+    #-- save --#
+    save_pth = '/home/ubuntu/data/home/main/NeuriCam/result/vsr/foliage'
+
+    def tensor_to_cv2( img_tensor ):
+        imgcv2 = img_tensor.clip(0., 1.).mul_(255.0).round().permute(1,2,0).numpy()
+        imgcv2 = cv2.cvtColor( imgcv2, cv2.COLOR_RGB2BGR )
+        return imgcv2
+    
+    for idx in range(t):
+        frame = output[idx]
+        imgcv2 = tensor_to_cv2( frame )
+        cv2.imwrite( os.path.join(save_pth, 'frame_{}.png'.format(idx)), imgcv2 )
