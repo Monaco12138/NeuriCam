@@ -66,22 +66,35 @@ params.eval_batch_size = args.eval_batch_size
 #         target_file = os.path.join(target_path, video_name, 'frame{}.png'.format(i) )
 #         os.system('cp {} {}'.format(source_file, target_file) )\
 
-h, w = 3, 4
-y, x = torch.meshgrid(torch.arange(0,h), torch.arange(0,w))
+# h, w = 3, 4
+# y, x = torch.meshgrid(torch.arange(0,h), torch.arange(0,w))
 
-grid = torch.stack((x,y), 2)
-#print(grid)
+# grid = torch.stack((x,y), 2)
+# #print(grid)
 
-gridx = 2.0 * grid[:,:,0] / max(w, 1) - 1.0
-gridy = 2.0 * grid[:,:,1] / max(h, 1) - 1.0
+# gridx = 2.0 * grid[:,:,0] / max(w, 1) - 1.0
+# gridy = 2.0 * grid[:,:,1] / max(h, 1) - 1.0
 
-gridf = torch.stack( (gridx, gridy), dim=-1)
-print(gridf)
-print(gridf.shape)
-gridf = gridf[None,...]
+# gridf = torch.stack( (gridx, gridy), dim=-1)
+# print(gridf)
+# print(gridf.shape)
+# gridf = gridf[None,...]
 
-x = torch.arange(h*w).reshape(1, 1, h, w).type(torch.float)
+# x = torch.arange(h*w).reshape(1, 1, h, w).type(torch.float)
+# print(x)
+
+# output = F.grid_sample(x, gridf, mode='nearest',padding_mode='zeros')
+# print(output)
+
+
+x = torch.arange(1*5*4*4).reshape(1, 5, 4, 4)
+x = torch.unbind( x[:,1:-1,...] )
 print(x)
-
-output = F.grid_sample(x, gridf, mode='bilinear',padding_mode='zeros')
-print(output)
+# y = torch.arange(1*3*4*4).reshape(1, 3, 4, 4)
+# z = [x] + [y]
+# print(z)
+# z = torch.cat( z, dim=1)
+# print(z.shape)
+#print( torch.cat(z, dim=1) ) 
+# z = [1,2,3,4]
+# print(z[-2])

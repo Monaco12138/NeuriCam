@@ -133,8 +133,6 @@ class BasicVSRNet(nn.Module):
 
         # compute optical flow
         flows_forward, flows_backward = self.compute_flow(lrs)
-        #-- save flows map --#
-        flowsf = flows_forward[0]
 
         # backward-time propgation
         outputs = []
@@ -452,7 +450,7 @@ if __name__ == '__main__':
     vsrmodel.load_state_dict( modeldict )
     
     #-- data loader --#
-    data_pth = '/home/ubuntu/data/Dataset/Vid4/BIx4/foliage'
+    data_pth = '/home/ubuntu/data/Dataset/Vid4/GT/foliage'
 
     filelist = sorted(glob.glob(os.path.join(data_pth, '*.png') ))
     #print(filelist)
@@ -468,23 +466,60 @@ if __name__ == '__main__':
     t, c, lr_h, lr_w = video.shape
     
     #-- infer --#
-    device = torch.device('cuda:1')
+    device = torch.device('cuda:0')
 
     video = video.to(device)
     vsrmodel = vsrmodel.to(device)
 
-    with torch.no_grad():
-        output = vsrmodel( video[None,...] )[0]
-    output = output.cpu()
-    #-- save --#
-    save_pth = '/home/ubuntu/data/home/main/NeuriCam/result/vsr/foliage'
-
+    # with torch.no_grad():
+    #     output = vsrmodel( video[None,...] )[0]
+    # output = output.cpu()
+    # #-- save --#
+    save_pth_1 = '/home/ubuntu/data/home/main/NeuriCam/result/vsr/flows_backward'
+    save_pth_2 = '/home/ubuntu/data/home/main/NeuriCam/result/vsr/flows_forward'
     def tensor_to_cv2( img_tensor ):
         imgcv2 = img_tensor.clip(0., 1.).mul_(255.0).round().permute(1,2,0).numpy()
         imgcv2 = cv2.cvtColor( imgcv2, cv2.COLOR_RGB2BGR )
         return imgcv2
     
-    for idx in range(t):
-        frame = output[idx]
+    # for idx in range(t):
+    #     frame = output[idx]
+    #     imgcv2 = tensor_to_cv2( frame )
+    #     cv2.imwrite( os.path.join(save_pth, 'frame_{}.png'.format(idx)), imgcv2 )
+    video = video[None,...]
+    with torch.no_grad():
+        vsrmodel.check_if_mirror_extended(video)
+        flows_forward, flows_backward = vsrmodel.compute_flow( video )
+    
+    outputs_backward = []
+    for i in range(t-1, -1, -1):
+        if i < t-1:
+            flow = flows_backward[:, i , ...]
+            feat = flow_warp( video[:, i+1, ...], flow.permute(0,2,3,1) )
+            outputs_backward.append( feat )
+
+    outputs_forward = []
+    for i in range(0, t):
+        if i > 0:
+            flow = flows_forward[:, i-1, ...]
+            feat = flow_warp( video[:, i-1, ...], flow.permute(0,2,3,1) )
+            outputs_forward.append( feat )
+
+
+    outputs_backward = outputs_backward[::-1]
+    outputs_backward = torch.stack(outputs_backward, dim=1)[0]
+    outputs_backward = outputs_backward.cpu()
+    print( outputs_backward.shape )
+    
+    outputs_forward = torch.stack( outputs_forward, dim=1)[0]
+    outputs_forward = outputs_forward.cpu()
+    print( outputs_backward.shape )
+
+    for idx in range(t-1):
+        frame = outputs_backward[idx]
         imgcv2 = tensor_to_cv2( frame )
-        cv2.imwrite( os.path.join(save_pth, 'frame_{}.png'.format(idx)), imgcv2 )
+        cv2.imwrite( os.path.join(save_pth_1, 'frame_{}.png'.format(idx)), imgcv2 )
+
+        frame = outputs_forward[idx]
+        imgcv2 = tensor_to_cv2( frame )
+        cv2.imwrite( os.path.join(save_pth_2, 'frame_{}.png'.format(idx)), imgcv2 )

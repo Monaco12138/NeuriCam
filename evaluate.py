@@ -39,7 +39,7 @@ parser.add_argument('--output_dir', default='/home/ubuntu/data/home/main/NeuriCa
                     help="Directory containing the val lr set")
 parser.add_argument('--profile', default=0, type=int,
                     help="Log profiling information.")
-parser.add_argument('--use_cpu', default=0, type=int,
+parser.add_argument('--use_cpu', default=1, type=int,
                     help="Use CPU even when GPUs are available.")
 parser.add_argument('--gpu', default=1, type=int,
                     help="Use CPU even when GPUs are available.")

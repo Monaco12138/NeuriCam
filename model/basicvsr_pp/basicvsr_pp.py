@@ -99,7 +99,7 @@ class BasicVSRPlusPlus(nn.Module):
 
         # upsampling module
         self.reconstruction = ResidualBlocksWithInputConv(
-            5 * mid_channels, mid_channels, 5)
+            5 * mid_channels, mid_channels, 5) 
         self.upsample1 = PixelShufflePack(
             mid_channels, mid_channels, 2, upsample_kernel=3)
         self.upsample2 = PixelShufflePack(
@@ -203,7 +203,7 @@ class BasicVSRPlusPlus(nn.Module):
 
         feat_prop = flows.new_zeros(n, self.mid_channels, h, w)
         for i, idx in enumerate(frame_idx):
-            feat_current = feats['spatial'][mapping_idx[idx]]
+            feat_current = feats['spatial'][ mapping_idx[idx] ]
             if self.cpu_cache:
                 feat_current = feat_current.cuda()
                 feat_prop = feat_prop.cuda()
@@ -221,6 +221,7 @@ class BasicVSRPlusPlus(nn.Module):
                 cond_n2 = torch.zeros_like(cond_n1)
 
                 if i > 1:  # second-order features
+                    # i-2 的特征
                     feat_n2 = feats[module_name][-2]
                     if self.cpu_cache:
                         feat_n2 = feat_n2.cuda()
@@ -228,7 +229,8 @@ class BasicVSRPlusPlus(nn.Module):
                     flow_n2 = flows[:, flow_idx[i - 1], :, :, :]
                     if self.cpu_cache:
                         flow_n2 = flow_n2.cuda()
-
+ 
+                    # flow[i-1, i] + flow[i, i+1] -> flow[i-1, i+1]
                     flow_n2 = flow_n1 + flow_warp(flow_n2,
                                                   flow_n1.permute(0, 2, 3, 1))
                     cond_n2 = flow_warp(feat_n2, flow_n2.permute(0, 2, 3, 1))
@@ -240,6 +242,7 @@ class BasicVSRPlusPlus(nn.Module):
                                                            flow_n1, flow_n2)
 
             # concatenate and residual blocks
+            # [n,c,h,w] + 
             feat = [feat_current] + [
                 feats[k][idx]
                 for k in feats if k not in ['spatial', module_name]
@@ -304,6 +307,7 @@ class BasicVSRPlusPlus(nn.Module):
 
         return torch.stack(outputs, dim=1)
 
+
     def forward(self, lqs):
         """Forward function for BasicVSR++.
 
@@ -339,7 +343,7 @@ class BasicVSRPlusPlus(nn.Module):
                 feats['spatial'].append(feat)
                 torch.cuda.empty_cache()
         else:
-            feats_ = self.feat_extract(lqs.view(-1, c, h, w))
+            feats_ = self.feat_extract( lqs.view(-1, c, h, w) )
             h, w = feats_.shape[2:]
             feats_ = feats_.view(n, t, -1, h, w)
             feats['spatial'] = [feats_[:, i, :, :, :] for i in range(0, t)]
@@ -452,3 +456,64 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
                                        self.stride, self.padding,
                                        self.dilation, self.groups,
                                        self.deform_groups)
+
+if __name__ == '__main__':
+    import glob
+    import cv2
+    from torchvision import transforms
+
+    #-- load model parameters --#
+    spynet_pth = '/home/ubuntu/data/home/main/NeuriCam/model/keyvsrc/spynet_20210409-c6c1bd09.pth'
+    basicvsrpp_pth = '/home/ubuntu/data/home/main/NeuriCam/model/basicvsr_pp/checkpoint/basicvsr_plusplus_c64n7_8x1_300k_vimeo90k_bi_20210305-4ef437e2.pth'
+    vsrmodel = BasicVSRPlusPlus(spynet_pretrained=spynet_pth)
+    #vsrmodel.init_weights(pretrained=basicvsr_pth)
+
+    savedict = torch.load( basicvsrpp_pth )['state_dict']
+    modeldict = {}
+    for k, v in savedict.items():
+        if 'generator' in k:
+            k = k[10:]
+            modeldict[k] = v
+        #print(k)
+    
+    vsrmodel.load_state_dict( modeldict )
+
+    #-- data loader --#
+    data_pth = '/home/ubuntu/data/Dataset/Vid4/BIx4/foliage'
+
+    filelist = sorted(glob.glob(os.path.join(data_pth, '*.png') ))
+    #print(filelist)
+    #t = len(filelist)
+    video = []
+    for file_pth in filelist:
+        frame = cv2.imread(file_pth, cv2.IMREAD_COLOR)
+        frame_tensor = transforms.ToTensor()( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
+        video.append( frame_tensor)
+    video = torch.stack(video, dim=0)
+    
+    # [49, 3, 120, 180]
+    t, c, lr_h, lr_w = video.shape
+    print(t, c, lr_h, lr_w )
+
+    #-- infer --#
+    device = torch.device('cuda:0')
+
+    video = video.to(device)
+    vsrmodel = vsrmodel.to(device)
+
+    with torch.no_grad():
+        output = vsrmodel( video[None,...] )[0]
+    output = output.cpu()
+
+
+    # -- save -- #
+    save_pth = '/home/ubuntu/data/home/main/NeuriCam/result/vsr_pp/foliage'
+    def tensor_to_cv2( img_tensor ):
+        imgcv2 = img_tensor.clip(0., 1.).mul_(255.0).round().permute(1,2,0).numpy()
+        imgcv2 = cv2.cvtColor( imgcv2, cv2.COLOR_RGB2BGR )
+        return imgcv2
+    
+    for idx in range(t):
+        frame = output[idx]
+        imgcv2 = tensor_to_cv2( frame )
+        cv2.imwrite(os.path.join(save_pth, 'frame_{}.png'.format(idx)), imgcv2  )

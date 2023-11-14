@@ -59,7 +59,10 @@ class Net(nn.Module):
 
     def propagate(self, lr, feats, key_frame_int):
         n, t, c, h, w = lr.size()
-
+            #print('$$$$')
+            #print(n, t, c, h, w)
+            # 1, 16, 1, 124, 184
+            #print('$$$$')
         # Exapnd lr sequence with an additional frame
         # for every key-frame.
         lr_e = []
@@ -95,7 +98,6 @@ class Net(nn.Module):
                     flows = flows_backward.flip(1)
 
                 feats = self.basicvsr_pp.propagate(feats, flows, module)
-
         # Remove output features corresponding to key-frames
         feats_e = {}
         for k in feats.keys():
@@ -133,6 +135,8 @@ class Net(nn.Module):
         lr = batch['LR']
         key = batch['key']
         key_frame_int = batch['key_frame_int'][0]
+        # lr: [n, t, c, h, w], e.g., [1, 49, 1, h, w]
+        # key: [n, t//key_frame_int, c, 4h, 4w], e.g., [1, 4, 3, 4h, 4w]
 
         # Normalize to [-1, 1] range
         lr = 2. * lr - 1.
@@ -154,7 +158,8 @@ class Net(nn.Module):
                 out_s = self.attn_similarity_upsampler(feats)
             else:
                 out_s = self.basicvsr_pp.upsample(lr_s, feats)
-
+            
+            #用key 取代输出的key对应部分
             outputs += [key[:, s, :, :, :]]
             if s < key.size(1) - 1:
                 outputs += torch.unbind(out_s[:, 1:-1, :, :, :], dim=1)
